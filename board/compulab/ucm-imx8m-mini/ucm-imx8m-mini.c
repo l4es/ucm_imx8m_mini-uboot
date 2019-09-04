@@ -150,25 +150,12 @@ int board_postclk_init(void)
 }
 #endif
 
-int get_baseboard_id(void)
+int get_ddr_size(void)
 {
-#ifdef CONFIG_RAM_1G
-#define BOARD_ID UCM_IMX8M_MINI_1G
-#endif
-#ifdef CONFIG_RAM_2G
-#define BOARD_ID UCM_IMX8M_MINI_2G
-#endif
-#ifdef CONFIG_RAM_4G
-#define BOARD_ID UCM_IMX8M_MINI_4G
-#endif
-#ifdef BOARD_ID
-	return BOARD_ID;
-#else
-#error Invalid memory configuration
-#endif
+	return readl(TCM_BOARD_CFG);
 }
 
-/* Get the top of usable RAM */
+	/* Get the top of usable RAM */
 ulong board_get_usable_ram_top(ulong total_size)
 {
 
@@ -180,23 +167,18 @@ ulong board_get_usable_ram_top(ulong total_size)
 
 int dram_init(void)
 {
-	int board_id = get_baseboard_id();
-	switch (board_id) {
-		case UCM_IMX8M_MINI_1G:
-		gd->ram_size = 0x40000000;
+	int ddr_size = get_ddr_size();
+
+	switch (ddr_size) {
+	case 1:
+	case 2:
+	case 4:
+		gd->ram_size = (phys_size_t)ddr_size * 0x40000000;
 		break;
-		case UCM_IMX8M_MINI_2G:
-		gd->ram_size = 0x80000000;
-		break;
-		case UCM_IMX8M_MINI_4G:
-		gd->ram_size = PHYS_SDRAM_SIZE;
-#if CONFIG_NR_DRAM_BANKS > 1
-		gd->ram_size += PHYS_SDRAM_2_SIZE;
-#endif
-		break;
-		default:
-			return -EINVAL;
+	default:
+		return -EINVAL;
 	}
+
 	/* rom_pointer[1] contains the size of TEE occupies */
 	if (rom_pointer[1])
 		gd->ram_size -= rom_pointer[1];
@@ -206,26 +188,33 @@ int dram_init(void)
 
 int dram_init_banksize(void)
 {
-	gd->bd->bi_dram[0].start = PHYS_SDRAM;
-	if (rom_pointer[1])
-		gd->bd->bi_dram[0].size = PHYS_SDRAM_SIZE -rom_pointer[1];
-	else
-		gd->bd->bi_dram[0].size = PHYS_SDRAM_SIZE;
+	int ddr_size = get_ddr_size();
 
-#if CONFIG_NR_DRAM_BANKS > 1
+	gd->bd->bi_dram[0].start = PHYS_SDRAM;
 	gd->bd->bi_dram[1].start = PHYS_SDRAM_2;
-	gd->bd->bi_dram[1].size = PHYS_SDRAM_2_SIZE;
-#endif
+
+	if(4 == ddr_size){
+		gd->bd->bi_dram[0].size = (phys_size_t)3 * 0x40000000;
+		gd->bd->bi_dram[1].size = (phys_size_t)1 * 0x40000000;
+	} else {
+		gd->bd->bi_dram[0].size = (phys_size_t)ddr_size * 0x40000000;
+		gd->bd->bi_dram[1].size = 0;
+	}
+
+	if (rom_pointer[1])
+		gd->bd->bi_dram[0].size -= rom_pointer[1];
 
 	return 0;
 }
 
 phys_size_t get_effective_memsize(void)
 {
+	int ddr_size = get_ddr_size();
+
 	if (rom_pointer[1])
-		return (PHYS_SDRAM_SIZE - rom_pointer[1]);
+		return (phys_size_t)ddr_size * 0x40000000 - rom_pointer[1];
 	else
-		return PHYS_SDRAM_SIZE;
+		return (phys_size_t)ddr_size * 0x40000000;
 }
 
 #ifdef CONFIG_OF_BOARD_SETUP

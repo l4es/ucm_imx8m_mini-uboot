@@ -67,6 +67,8 @@ void arch_lmb_reserve(struct lmb *lmb)
 	for (bank = 0; bank < CONFIG_NR_DRAM_BANKS; bank++) {
 		if (sp < gd->bd->bi_dram[bank].start)
 			continue;
+		if (!gd->bd->bi_dram[bank].size)
+			continue;
 		bank_end = gd->bd->bi_dram[bank].start +
 			gd->bd->bi_dram[bank].size;
 		if (sp >= bank_end)
@@ -134,6 +136,8 @@ static void setup_memory_tags(bd_t *bd)
 	int i;
 
 	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+		if(!bd->bi_dram[i].size)
+			continue;
 		params->hdr.tag = ATAG_MEM;
 		params->hdr.size = tag_size (tag_mem32);
 

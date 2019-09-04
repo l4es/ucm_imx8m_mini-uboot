@@ -86,35 +86,34 @@ void set_wdog_reset(struct wdog_regs *wdog)
 }
 
 static struct mm_region imx8m_mem_map[] = {
-	{
-		/* ROM */
+	{ /* 0 ROM */
 		.virt = 0x0UL,
 		.phys = 0x0UL,
 		.size = 0x100000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_OUTER_SHARE
-	}, {
+	}, { /* 1 */
 		.virt = 0x100000UL,
 		.phys = 0x100000UL,
 		.size = 0x8000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
-	}, {
+	}, { /* 2 */
 		.virt = 0x7C0000UL,
 		.phys = 0x7C0000UL,
 		.size = 0x80000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
-	}, {
+	}, { /* 3 */
 		/* OCRAM */
 		.virt = 0x900000UL,
 		.phys = 0x900000UL,
 		.size = 0x200000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_OUTER_SHARE
-	}, {
+	}, { /* 4 */
 		/* AIPS */
 		.virt = 0xB00000UL,
 		.phys = 0xB00000UL,
@@ -122,44 +121,45 @@ static struct mm_region imx8m_mem_map[] = {
 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
-	}, {
+	}, { /* 5 */
 		/* DRAM1 */
 		.virt = 0x40000000UL,
 		.phys = 0x40000000UL,
-		.size = PHYS_SDRAM_SIZE,
+		.size = 0x40000000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 #ifdef CONFIG_IMX_TRUSTY_OS
 			 PTE_BLOCK_INNER_SHARE
 #else
 			 PTE_BLOCK_OUTER_SHARE
 #endif
-#if CONFIG_NR_DRAM_BANKS > 1
-	}, {
+	}, { /* 6 */
 		/* DRAM2 */
 		.virt = 0x100000000UL,
 		.phys = 0x100000000UL,
-		.size = PHYS_SDRAM_2_SIZE,
+		.size = 0x40000000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 #ifdef CONFIG_IMX_TRUSTY_OS
 			 PTE_BLOCK_INNER_SHARE
 #else
 			 PTE_BLOCK_OUTER_SHARE
 #endif
-#endif
-	}, {
+	}, { /* 8 */
 		/* List terminator */
 		0,
 	}
 };
+#define DRAM1_REG_IND 5
+#define DRAM2_REG_IND 6
 
 struct mm_region *mem_map = imx8m_mem_map;
 
 void enable_caches(void)
 {
-	/* If OPTEE runs, remove OPTEE memory from MMU table to avoid speculative prefetch */
-	if (rom_pointer[1]) {
-		imx8m_mem_map[5].size -= rom_pointer[1];
-	}
+	imx8m_mem_map[DRAM1_REG_IND].size = gd->bd->bi_dram[0].size;
+	imx8m_mem_map[DRAM2_REG_IND].size = gd->bd->bi_dram[1].size;
+
+	if(!gd->bd->bi_dram[1].size)
+		imx8m_mem_map[DRAM2_REG_IND].attrs = 0;
 
 	icache_enable();
 	dcache_enable();
